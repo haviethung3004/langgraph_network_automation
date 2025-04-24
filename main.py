@@ -1,4 +1,5 @@
-from agent.graph import graph
+import asyncio
+from agent.graph import make_graph
 from langchain_core.messages import AIMessage, HumanMessage
 import logging
 
@@ -12,7 +13,12 @@ messages = [
     HumanMessage(content="I need help with my project.")
 ]
 
-output = graph.invoke({"messages": messages})
-logger.info(f"Final state: {output}")
-for m in output['messages']:
-    m.pretty_print()
+async def main():
+    async with make_graph() as agent:
+        output = await agent.ainvoke({"messages": messages})
+        logger.info(f"Final state: {output}")
+        for m in output['messages']:
+            m.pretty_print()
+
+if __name__ == "__main__":
+    asyncio.run(main())

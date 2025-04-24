@@ -1,11 +1,14 @@
-from langchain_core.messages import AIMessage, HumanMessage
+#graph.py
+from contextlib import asynccontextmanager
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv, find_dotenv
-from langgraph.graph import MessagesState, START, END, StateGraph, add_messages
 import os
 import logging
 
-# Set up logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -15,30 +18,41 @@ load_dotenv(find_dotenv(), override=True)
 # Initialize LLM
 llm = ChatOpenAI(model='gpt-4o-mini', api_key=os.getenv('OPENAI_API_KEY'))
 
-# Define node with robust input validation
-def chat_model_node(state: MessagesState):
-    messages = state.get('messages', [])
-    logger.info(f"Input messages: {messages}")
-    # Filter out invalid or empty messages
-    valid_messages = [
-        msg for msg in messages
-        if isinstance(msg, (AIMessage, HumanMessage)) and msg.content and msg.content.strip()
-    ]
-    logger.info(f"Valid messages after filtering: {valid_messages}")
-    if not valid_messages:
-        logger.warning(f"No valid messages provided; returning default response. Raw input: {state}")
-        return {"messages": AIMessage(content="Please provide a non-empty message.")}
+@asynccontextmanager
+async def make_graph():
     try:
-        response = llm.invoke(valid_messages)
-        logger.info(f"LLM response: {response}")
-        return {"messages": response}
+        logger.info("Starting MCP client setup...")
+        mcp_config = {
+            "Cisco-IOS-config": {
+                "command": "python",
+                "args": [
+                    "-m",
+                    "mcp",
+                    "run",
+                    "--with",
+                    "mcp[cli],netmiko",
+                    "C:\\Users\\dsu979\\Documents\\MCP_Network_automator\\mcp_cisco_server.py"
+                ],
+                "transport": "stdio",
+            },
+            "perplexity-mcp": {
+                "command": "uvx",
+                "args": ["C:\\Users\\dsu979\\Documents\\perplexity-mcp"],
+                "env": {
+                    "PERPLEXITY_API_KEY": "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",
+                    "PERPLEXITY_MODEL": "sonar"
+                },
+                "transport": "stdio",
+            },
+        }
+        logger.info(f"MCP configuration: {mcp_config}")
+        
+        async with MultiServerMCPClient(mcp_config) as client:
+            logger.info("MCP client setup successful!")
+            agent = create_react_agent(llm, client.get_tools())
+            logger.info("Agent created successfully!")
+            yield agent
     except Exception as e:
-        logger.error(f"LLM error: {str(e)}")
-        return {"messages": AIMessage(content=f"Error: {str(e)}")}
+        logger.error(f"Error in make_graph: {str(e)}")
+        raise
 
-# Build graph
-builder = StateGraph(MessagesState)
-builder.add_node("chat_model", chat_model_node)
-builder.add_edge(START, "chat_model")
-builder.add_edge("chat_model", END)
-graph = builder.compile()

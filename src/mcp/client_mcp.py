@@ -1,36 +1,44 @@
 # Create server parameters for stdio connection
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
 from langchain_mcp_adapters.tools import load_mcp_tools
 from langgraph.prebuilt import create_react_agent
+
 from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv, find_dotenv
-import os
-
-load_dotenv(find_dotenv(), override=True)
-
-
-llm = ChatOpenAI(model='gpt-4o-mini', api_key=os.getenv('OPENAI_API_KEY'))
+model = ChatOpenAI(model="gpt-4o-mini")
 
 server_params = StdioServerParameters(
-    command="uv",
-    args= [
-            "run",
-            "--with",
-            "mcp[cli],netmiko",
-            "mcp",
-            "run",
-            "C:\\Users\\dsu979\\Documents\\MCP_Network_automator\\mcp_cisco_server.py"
-        ],)
+    command="python",
+    # Make sure to update to the full absolute path to your math_server.py file
+    args=["C:\\Users\\dsu979\\Documents\\langgraph_network_automation\\src\\mcp\\math_server.py"],
+)
+async def main():
+    # Create a client session using stdio
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # Initialize the connection
+            await session.initialize()
 
-async with stdio_client(server_params) as (read, write):
-    async with ClientSession(read, write) as session:
-        # Initialize the connection
-        await session.initialize()
+            # Get tools
+            tools = await load_mcp_tools(session)
 
-        # Get tools
-        tools = await load_mcp_tools(session)
+            # Create and run the agent
+            agent = create_react_agent(model, tools)
+            agent_response = await agent.ainvoke({"messages": "what's (3 + 5) x 12?"})
+            # Stream the response
+            async for chunk in agent.astream({"messages": "what's (3 + 5) x 12?"}):
+                if "messages" in chunk:
+                    # Get the latest message
+                    message = chunk["messages"][-1]
+                    if message.content:
+                        print(message.content, end="", flush=True)
+            print()  # Final newline
 
-        # Create and run the agent
-        agent = create_react_agent(llm, tools)
-        agent_response = await agent.ainvoke({"messages": "what's (3 + 5) x 12?"})
+            # If you still need the complete response:
+            print("\nFull response:")
+            print(agent_response["messages"][-1].content)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
