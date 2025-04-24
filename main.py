@@ -1,4 +1,4 @@
-from src.agent.agent import graph
+from agent.graph import graph
 from langchain_core.messages import AIMessage, HumanMessage
 import logging
 

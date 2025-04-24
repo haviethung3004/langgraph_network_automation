@@ -14,4 +14,6 @@ dependencies = [
     "uvicorn>=0.26.0",
     "langgraph-cli[inmem]>=0.1.0",
     "langchain-openai>=0.3.14",
+    "mcp[cli]>=1.6.0",
+    "langchain-mcp-adapters>=0.0.9",
 ]
