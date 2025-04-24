@@ -12,3 +12,10 @@ __pycache__/
 *.pyc
 .env
 .langgraph_cache/
+
+
+.langgraph_api
+.langgraph_api/.langgraph_checkpoint.1.pckl
+.langgraph_api/.langgraph_checkpoint.2.pckl
+.langgraph_api/.langgraph_ops.pckl
+.langgraph_api/.langgraph_retry_counter.pckl
