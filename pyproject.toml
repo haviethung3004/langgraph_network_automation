@@ -16,4 +16,6 @@ dependencies = [
     "langchain-openai>=0.3.14",
     "mcp[cli]>=1.6.0",
     "langchain-mcp-adapters>=0.0.9",
+    "aiofiles>=24.1.0",
+    "langgraph-supervisor>=0.0.17",
 ]

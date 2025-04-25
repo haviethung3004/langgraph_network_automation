@@ -15,3 +15,5 @@ __pycache__/
 
 
 .langgraph_api/
+
+langgraph_network_automation.egg-info/

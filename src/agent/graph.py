@@ -1,58 +1,55 @@
-#graph.py
-from contextlib import asynccontextmanager
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
-
 from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv, find_dotenv
-import os
-import logging
+from langgraph.prebuilt import create_react_agent
+from langgraph_supervisor import create_handoff_tool, create_supervisor
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+model = ChatOpenAI(model="gpt-4o-mini")
 
-# Load environment variables
-load_dotenv(find_dotenv(), override=True)
+def add(x, y):
+    """
+    Adds two numbers.
+    """
+    return x + y
 
-# Initialize LLM
-llm = ChatOpenAI(model='gpt-4o-mini', api_key=os.getenv('OPENAI_API_KEY'))
+def multiply(x, y):
+    """
+    Multiplies two numbers.
+    """
+    return x * y
 
-@asynccontextmanager
-async def make_graph():
-    try:
-        logger.info("Starting MCP client setup...")
-        mcp_config = {
-            "Cisco-IOS-config": {
-                "command": "python",
-                "args": [
-                    "-m",
-                    "mcp",
-                    "run",
-                    "--with",
-                    "mcp[cli],netmiko",
-                    "C:\\Users\\dsu979\\Documents\\MCP_Network_automator\\mcp_cisco_server.py"
-                ],
-                "transport": "stdio",
-            },
-            "perplexity-mcp": {
-                "command": "uvx",
-                "args": ["C:\\Users\\dsu979\\Documents\\perplexity-mcp"],
-                "env": {
-                    "PERPLEXITY_API_KEY": "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",
-                    "PERPLEXITY_MODEL": "sonar"
-                },
-                "transport": "stdio",
-            },
-        }
-        logger.info(f"MCP configuration: {mcp_config}")
-        
-        async with MultiServerMCPClient(mcp_config) as client:
-            logger.info("MCP client setup successful!")
-            agent = create_react_agent(llm, client.get_tools())
-            logger.info("Agent created successfully!")
-            yield agent
-    except Exception as e:
-        logger.error(f"Error in make_graph: {str(e)}")
-        raise
+def web_research(query):
+    """
+    Searches the web for information.
+    """
+    return "The weather is sunny today in Ho Chi Minh city."
 
+
+math_agent = create_react_agent(
+    model=model,
+    tools=[add, multiply],
+    name="math_expert"
+)
+
+research_agent = create_react_agent(
+    model=model,
+    tools=[web_research],
+    name="research_expert"
+)
+
+supervisor_workflow = create_supervisor(
+    [math_agent, research_agent],
+    model=model,
+    tools=[
+        create_handoff_tool(
+            agent_name="math_expert",
+            description="A math expert that can add and multiply numbers.",
+            name="assign_to_math_expert",
+        ),
+        create_handoff_tool(
+            agent_name="research_expert",
+            description="A research expert that can search the web for information.",
+            name="assign_to_research_expert",
+        ),
+    ]
+)
+
+agent = supervisor_workflow.compile()
